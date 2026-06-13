@@ -5,12 +5,9 @@ import requests
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 from anthropic import Anthropic
+from config import WATCHLIST
 
 load_dotenv()
-
-# --- Config: change this to score a different country ---
-COUNTRY = "Nigeria"
-# --------------------------------------------------------
 
 MODEL = "claude-haiku-4-5-20251001"
 RUBRIC_VERSION = "v1"
@@ -130,29 +127,23 @@ def main():
     with open("peril_rubric.md") as f:
         rubric = f.read()
 
-    print(f"Fetching news for {COUNTRY}...")
-    headlines = get_news(COUNTRY)
-    print(f"Found {len(headlines)} headlines.\n")
-
-    print("Scoring with Claude...\n")
-    result = score_country(COUNTRY, headlines, rubric)
-
-    print(f"=== Political Risk Scores: {result['country']} ===\n")
-    for p in result["perils"]:
-        print(f"{p['peril']}")
-        print(f"  Score: {p['score']}/10   Direction: {p['direction']}   Confidence: {p['confidence']}")
-        print(f"  Evidence: {p['evidence']}\n")
-
     conn = init_db()
-    store_scores(conn, result)
+    for country in WATCHLIST:
+        try:
+            print(f"\n=== {country} ===")
+            headlines = get_news(country)
+            print(f"  {len(headlines)} headlines, scoring...")
+            result = score_country(country, headlines, rubric)
+            store_scores(conn, result)
+            for p in result["perils"]:
+                print(f"  {p['peril']}: {p['score']}/10 ({p['direction']}, {p['confidence']})")
+        except Exception as e:
+            print(f"  ERROR scoring {country}: {e}")
+
     total = conn.execute("SELECT COUNT(*) FROM scores").fetchone()[0]
     conn.close()
-    print(f"Saved to {DB_PATH}. Total rows in database: {total}")
-
-
-def main_guard():
-    main()
+    print(f"\nDone. Total rows in database: {total}")
 
 
 if __name__ == "__main__":
-    main_guard()
+    main()
