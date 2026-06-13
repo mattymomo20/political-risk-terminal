@@ -1,0 +1,36 @@
+name: Daily risk scoring
+
+on:
+  schedule:
+    - cron: "0 6 * * *"      # 06:00 UTC every day
+  workflow_dispatch:          # lets you trigger it manually too
+
+permissions:
+  contents: write             # needed so it can save the updated database
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run scoring
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
+        run: uv run score_country.py
+
+      - name: Commit updated database
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add scores.db
+          git diff --staged --quiet || git commit -m "Daily scores: $(date -u +%Y-%m-%d)"
+          git push
