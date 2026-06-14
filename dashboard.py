@@ -17,7 +17,7 @@ st.title("Political Risk Terminal")
 st.caption("LLM-scored political risk across watchlist countries. Prototype — public news only.")
 
 
-@st.cache_data
+@st.cache_data(ttl)=3600)
 def load_data():
     conn = sqlite3.connect(DB_PATH)
     df = pd.read_sql_query("SELECT * FROM scores", conn)
